@@ -20,16 +20,19 @@ Design decisions
   Application subclass is found, a minimal no-op stub class is generated
   instead.  This keeps the rebuilt APK runnable.
 """
+# pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-return-statements
+
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
-import shutil
 import struct
 import subprocess
 import sys
 import zipfile
+import zlib
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -158,7 +161,6 @@ class AXML:
         style_count = u32(buf, base + 12)
         flags = u32(buf, base + 16)
         strings_start = u32(buf, base + 20)
-        styles_start = u32(buf, base + 24)
         utf8 = bool(flags & FLAG_UTF8)
         data_base = base + strings_start
         strings = []
@@ -197,7 +199,7 @@ class AXML:
             b = self.buf[pos]
             pos += 1
             result |= (b & 0x7F) << shift
-            if not (b & 0x80):
+            if (b & 0x80) == 0:
                 break
             shift += 7
         return result, pos
@@ -209,7 +211,7 @@ class AXML:
             b = self.buf[pos]
             pos += 1
             result |= (b & 0x7F) << shift
-            if not (b & 0x80):
+            if (b & 0x80) == 0:
                 break
             shift += 7
         return result, pos
@@ -259,11 +261,11 @@ class AXML:
         app_name = None
         for tag, attrs, _ in self.iter_elements():
             if tag == "manifest":
-                for ns, rid, raw, dtype, data, _aoff in attrs:
+                for _, rid, raw, dtype, _, _aoff in attrs:
                     if rid == ATTR_ANDROID_PACKAGE and dtype == TYPE_STRING and raw < len(self.pool["strings"]):
                         pkg = self.pool["strings"][raw]
             elif tag == "application":
-                for ns, rid, raw, dtype, data, _aoff in attrs:
+                for _, rid, raw, dtype, _, _aoff in attrs:
                     if rid == ATTR_ANDROID_NAME:
                         if dtype == TYPE_STRING and raw < len(self.pool["strings"]):
                             app_name = self.pool["strings"][raw]
@@ -336,7 +338,7 @@ def patch_axml_application_name(data: bytes, new_name: str) -> bytes:
     for tag, attrs, _elem_off in reax.iter_elements():
         if tag != "application":
             continue
-        for ns, name_rid, raw_value, dtype, data, aoff in attrs:
+        for _, name_rid, _, _, _, aoff in attrs:
             if name_rid == ATTR_ANDROID_NAME:
                 target_attr_off = aoff
                 break
@@ -388,13 +390,13 @@ def find_first_record_end(carrier: bytes, count: int):
     for e in range(lo, hi, 4):
         if carrier[e - 4:e] == b"ARKS":
             continue  # unsupported variant marker
-        size, off, ok, head = peek_record(carrier, e)
+        _, off, ok, _ = peek_record(carrier, e)
         if not ok:
             continue
         cur = off
         chain_ok = True
         for _ in range(count - 1):  # first peek already covered record 1
-            sz2, off2, ok2, _ = peek_record(carrier, cur)
+            _, off2, ok2, _ = peek_record(carrier, cur)
             if not ok2:
                 chain_ok = False
                 break
@@ -422,7 +424,7 @@ def recover_records(carrier: bytes):
     if n < 0x200:
         raise ValueError("carrier too small")
     count = u32(carrier, n - 4)
-    if not (1 <= count <= 20000):
+    if count < 1 or count > 20000:
         raise ValueError(f"implausible record count: {count}")
 
     candidates = find_first_record_end(carrier, count)
@@ -477,7 +479,7 @@ def recover_records(carrier: bytes):
                         "first_len": first_len,
                         "application_class": app_class.decode("ascii", errors="replace"),
                     }
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             pass
         return records, trailer, pos
 
@@ -503,18 +505,25 @@ def carrier_candidates(zf: zipfile.ZipFile):
 # ---------------------------------------------------------------------------
 
 def parse_dex_classes(path_or_bytes):
-    b = path_or_bytes if isinstance(path_or_bytes, bytes) else open(path_or_bytes, "rb").read()
+    b = path_or_bytes if isinstance(path_or_bytes, bytes) else Path(path_or_bytes).read_bytes()
     if b[:4] != b"dex\n":
         return []
-    ss = u32(b, 0x38); so = u32(b, 0x3C)
-    ts = u32(b, 0x40); to = u32(b, 0x44)
-    cs = u32(b, 0x60); co = u32(b, 0x64)
+    ss = u32(b, 0x38)
+    so = u32(b, 0x3C)
+    ts = u32(b, 0x40)
+    to = u32(b, 0x44)
+    cs = u32(b, 0x60)
+    co = u32(b, 0x64)
 
     def uleb(o):
-        r = 0; sh = 0
+        r = 0
+        sh = 0
         while True:
-            x = b[o]; o += 1; r |= (x & 0x7F) << sh
-            if x < 0x80: break
+            x = b[o]
+            o += 1
+            r |= (x & 0x7F) << sh
+            if x < 0x80:
+                break
             sh += 7
         return r, o
 
@@ -524,7 +533,7 @@ def parse_dex_classes(path_or_bytes):
         try:
             ln, at = uleb(off)
             strs.append(b[at:at + ln].decode("utf-8", "replace"))
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             strs.append("")
     types = []
     for i in range(ts):
@@ -534,8 +543,8 @@ def parse_dex_classes(path_or_bytes):
     for i in range(cs):
         off = co + i * 32
         try:
-            ci, af, si = struct.unpack_from("<III", b, off)
-        except Exception:
+            ci, _, si = struct.unpack_from("<III", b, off)
+        except Exception:  # pylint: disable=broad-exception-caught
             continue
         classes.append((types[ci] if ci < len(types) else "?",
                         types[si] if 0 < si < len(types) else "?"))
@@ -639,7 +648,6 @@ def build_noop_dex(descriptor: str) -> bytes:
     while len(data) % 4:
         data += b"\x00"
         map_off = data_off + len(data)
-    import struct as _s
     map_entries = [
         (0x0000, 1, 0),
         (0x0001, 6, string_ids_off),
@@ -652,11 +660,11 @@ def build_noop_dex(descriptor: str) -> bytes:
         (0x2001, 2, code_init_off),
         (0x2000, 1, class_data_off),
     ]
-    map_list = b"".join(_s.pack("<HHII", t, 0, s, o) for t, s, o in map_entries)
+    map_list = b"".join(struct.pack("<HHII", t, 0, s, o) for t, s, o in map_entries)
     data += map_list
 
     # string_id entries: absolute offsets of each blob
-    string_ids = b"".join(_s.pack("<I", string_data_base + o) for o in blob_offs)
+    string_ids = b"".join(struct.pack("<I", string_data_base + o) for o in blob_offs)
     type_ids = struct.pack("<III", 1, 2, 3)                    # V, descriptor, Application
     proto_ids = struct.pack("<III", 1, 0, 0)                   # ()V
     method_ids = struct.pack("<9I",
@@ -674,10 +682,8 @@ def build_noop_dex(descriptor: str) -> bytes:
     assert len(header) == 0x70
 
     bundle = bytearray(header + string_ids + type_ids + proto_ids + method_ids + class_def + data)
-    import hashlib as _hl
-    import zlib as _zl
-    bundle[0x0C:0x20] = _hl.sha1(bytes(bundle[0x0C:])).digest()
-    bundle[0x08:0x0C] = struct.pack("<I", _zl.adler32(bytes(bundle[0x0C:])))
+    bundle[0x0C:0x20] = hashlib.sha1(bytes(bundle[0x0C:])).digest()
+    bundle[0x08:0x0C] = struct.pack("<I", zlib.adler32(bytes(bundle[0x0C:])))
     return bytes(bundle)
 
 
@@ -723,7 +729,7 @@ def rebuild_apk(src_apk: Path, records, out_apk: Path, patched_manifest: bytes |
         # recovered dexes (uncompressed for mmap)
         total = len(records)
         for i, rec in enumerate(records, 1):
-            zi = zipfile.ZipInfo(f"classes.dex" if i == 1 else f"classes{i}.dex",
+            zi = zipfile.ZipInfo("classes.dex" if i == 1 else f"classes{i}.dex",
                                  date_time=(1980, 1, 1, 0, 0, 0))
             zi.compress_type = zipfile.ZIP_STORED
             zout.writestr(zi, rec["data"], compress_type=zipfile.ZIP_STORED)
@@ -758,7 +764,6 @@ def find_sdk_tool(name: str) -> str | None:
 
 
 def main() -> int:
-    import argparse
     p = argparse.ArgumentParser(description="Unpack + rebuild B2Al-style packed APKs")
     p.add_argument("apk", nargs="?", help="path to APK or a raw carrier file (classes.dex)")
     p.add_argument("--entry", default=None, help="force carrier entry in the APK")
@@ -866,7 +871,7 @@ def main() -> int:
             axm = AXML(bytes(manifest_data))
             pkg, cur_name = axm.get_application_name()
             from_ = {"pkg": pkg, "name": cur_name}
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             print(f"  (manifest parse skipped: {e})")
 
         resolutions = set()
@@ -884,7 +889,7 @@ def main() -> int:
                 try:
                     patched_manifest = patch_axml_application_name(bytes(manifest_data), to_name)
                     app_change = f"android:name -> {to_name}"
-                except Exception as e:
+                except Exception as e:  # pylint: disable=broad-exception-caught
                     print(f"  (manifest patch failed: {e})")
             else:
                 # fallback: no-op stub with the current android:name
@@ -925,7 +930,7 @@ def main() -> int:
             if app_change:
                 print(f"Manifest patch:    {app_change}")
             r = subprocess.run([apksigner, "verify", str(final_apk)],
-                               capture_output=True, text=True)
+                               capture_output=True, text=True, check=False)
             print("Signature verify: " + ("OK" if r.returncode == 0 else r.stderr.strip()))
         except FileNotFoundError as e:
             print(f"signing skipped (tool not found: {e.filename})")
