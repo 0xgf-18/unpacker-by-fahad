@@ -26,6 +26,7 @@ Maintained by [Fahad (0xgf18)](https://github.com/0xgf18).
   - [DPT Shell pipeline](#dpt-shell-pipeline)
   - [LSParanoid pipeline](#lsparanoid-pipeline)
   - [360 Jiagu / ArkShell pipeline](#360-jiagu--arkshell-pipeline)
+  - [B2Al proxy packer pipeline (POWER~MODS)](#b2al-proxy-packer-pipeline-powermods)
   - [PairipProtect pipeline](#pairipprotect-pipeline)
 - [Outputs, signing & keystore](#outputs-signing--keystore)
 - [Environment variables](#environment-variables)
@@ -69,6 +70,7 @@ Maintained by [Fahad (0xgf18)](https://github.com/0xgf18).
 | `dpt` | DPT Shell | static payload restore + AES key recovery | no |
 | `lsparanoid` | LSParanoid | static string deobfuscation (smali rewrite) | no |
 | `ark` | 360 Jiagu / ArkShell | runtime dump + rebuild | yes (su / adb) |
+| `b2al` | B2Al proxy packer (POWER~MODS) | static record-chain recover + rebuild | no |
 | `pairip` | PairipProtect (VM) | RePairip deprotection | no |
 | `embedded` | SignatureKiller / fake-360 re-packs | extract embedded `origin.apk`, recurse | no |
 
@@ -106,10 +108,13 @@ four independent scopes:
 
 Scoring is additive: every unique hit adds to `hits`, and likelihood is
 `min(1.0, 0.42 + 0.16 * (hits-1))` — one weak hit lands near 0.42, several
-cross-scope hits saturate at 1.0. **Anchor gating** prevents false positives:
-a layer is only reported when at least one *discriminative* marker (e.g. `b2al`,
-`libjiagu`, `OoooooOooo`) is physically present in a binary scope; generic
-strings like `com.qihoo` only add confidence.
+cross-scope hits saturate at 1.0. **Anchor gating** prevents false positives: a layer is only reported when at
+least one *discriminative* marker (e.g. `b2al`, `libjiagu`, `OoooooOooo`) is
+physically present in a binary scope; generic strings like `com.qihoo` only add
+confidence. A fingerprint may instead provide a **binary gate** (e.g. B2Al:
+does a `classes*.dex` actually contain a decodable record chain?) which replaces
+the text-anchor test; a passing B2Al gate also suppresses the overlapping
+`ark360` text fingerprint.
 
 **Decoy scan** — a separate pass looks for fake-360 placeholders (tiny text
 `libjiagu*.a`, Art-Jiagu NeoArk markers) and SignatureKiller re-packs (real APK
@@ -132,10 +137,10 @@ DECOY layer (likelihood 1.0) is emitted instead.
    extract it into `<out>/embedded/` and **recurse** (guarded to depth 4).
 3. **Raw?** — prints `APK IS RAW - nothing to unpack`, exits 0.
 4. **Route** — pick the first built-in pipeline for the detected stack
-   (DPT / LSParanoid / Ark / Pairip).
+   (DPT / LSParanoid / Ark / B2Al / Pairip).
 5. **Decoy-only?** — no embedded apk to extract → falls through to the classic
-   quick detectors (`DptDetector`, `LsparanoidDetector`, `ArkDetector`) as a
-   last-resort route.
+   quick detectors (`DptDetector`, `LsparanoidDetector`, `ArkDetector`,
+   `B2AlDetector`) as a last-resort route.
 
 Aliases: `auto-all`, `oneshot`, `full`, `single`, or menu choice `5`.
 
@@ -197,7 +202,7 @@ usage: dpt-unpacker <input.apk> [options]      (first positional = input)
 | --- | --- |
 | `-i, --input <apk>` | input APK |
 | `-o, --output <dir>` | output directory (default `<name>-unpacked/` next to input) |
-| `--mode <dpt\|lsparanoid\|ark\|pairip\|auto\|auto-all>` | force a route |
+| `--mode <dpt\|lsparanoid\|ark\|b2al\|pairip\|auto\|auto-all>` | force a route |
 | `--analyze` | profile only: protection stack + APKiD booster + recommendation |
 | `--debug` | verbose output (stack traces on failure) |
 | `--inspect` | DPT: layout info only, no dump |
@@ -228,6 +233,7 @@ usage: dpt-unpacker <input.apk> [options]      (first positional = input)
 - LSParanoid: `lsp`, `lsparanoid`, `2`
 - Ark: `ark`, `360`, `jiagu`, `3`
 - Pairip: `pairip`, `repairip`, `4`
+- B2Al: `b2al`, `b2`, `proxy`, `6`
 - Auto-all: `auto-all`, `oneshot`, `full`, `single`, `5`
 
 ---
@@ -290,6 +296,25 @@ Runtime dump, requires a device (or an existing dump):
    `Application` subclass across the payload dexes and rewrites the manifest.
 5. **Rebuild + sign** — `ArkRebuilder` + signing to `<name>-unpacked.apk`.
 
+### B2Al proxy packer pipeline (POWER~MODS)
+
+Fully static, no device. The shipped `classes.dex` is a small proxy stub whose
+body is a chain of XOR-encrypted DEX records plus a trailer (never assumes a
+fixed build offset — the chain end is auto-detected):
+
+1. **Detect + recover** — `B2AlDetector` reads the record count from the last 4
+   bytes, probes candidate block-ends before EOF (decrypt the first `0x2C` bytes,
+   check dex magic + header `file_size` + endian tag), walks the whole chain
+   backwards and validates every record (`plain[i] ^ key[i & 63]`).
+2. **Trailer** — the real Application class name is recovered from the trailer
+   (`n - 0x48`, 32 bytes XOR `key0`).
+3. **Restore** — the records are written back as a dedicated multidex
+   (`classes.dex … classesN.dex`).
+4. **Manifest** — `<application android:name>` is repointed at the real
+   Application via the in-place AXML string-pool patch (UTF-8 and UTF-16 pools).
+5. **Rebuild + sign** — `ArkRebuilder` drops the proxy carrier + old signature,
+   installs the recovered dexes, then zipalign + apksigner.
+
 ### PairipProtect pipeline
 
 Delegates to `RePairip.jar` (discovery order: `DPT_REPAIRIP_JAR`, `tools/`,
@@ -350,6 +375,7 @@ fahad-unpacker/
 │   ├── lsp/                  # LsparanoidDetector, SmaliDeobfuscator, ExternalTool
 │   ├── ark/                  # ArkDetector, ArkDumper (adb/local/bluestacks),
 │   │                         # ArkOatExtractor, ArkDexTools, ArkRebuilder
+│   ├── b2al/                 # B2AlDetector (proxy carrier record-chain recover)
 │   ├── axml/                 # binary AndroidManifest read + patch
 │   ├── rebuild/              # ApkRebuilder, Signer
 │   ├── tools/                # RePairipTool, DumpMethod
@@ -379,6 +405,9 @@ bash run.sh app.apk --mode dpt
 bash run.sh app.apk --mode lsparanoid
 bash run.sh app.apk --mode pairip
 
+# B2Al proxy packer (POWER~MODS): static record-chain recover + rebuild
+bash run.sh app.apk --mode b2al
+
 # fake-360: SignatureKiller repack (has origin.apk) is unpacked statically
 bash run.sh app.apk
 # ... a marker-only fake shell (no origin.apk, no lib/libjiagu.so) is detected
@@ -405,6 +434,7 @@ Most routes run entirely on the machine/phone without touching a device:
 | --- | --- | --- |
 | DPT (dex-shell) | ✅ | payload restore + key recovery, offline |
 | LSParanoid | ✅ | smali-level deobfuscation via local apktool |
+| B2Al proxy packer (POWER~MODS) | ✅ | static record-chain recover + multidex rebuild |
 | Fake-360 decoy / marker-only shell | ✅ | embedded `origin.apk` is extracted, or the readable copy is delivered (`FAKE SHELL ONLY`) |
 | SignatureKiller re-pack | ✅ | embedded `origin.apk` extracted + recursed |
 | PairipProtect translation | ✅ | offline from a captured `pairip.json` |

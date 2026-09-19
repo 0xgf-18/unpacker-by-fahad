@@ -19,6 +19,7 @@ import com.dpt.unpack.ark.ArkDexTools
 import com.dpt.unpack.ark.ArkOatExtractor
 import com.dpt.unpack.ark.ArkRebuilder
 import com.dpt.unpack.checksum.DexChecksum
+import com.dpt.unpack.b2al.B2AlDetector
 import java.io.File
 import java.security.MessageDigest
 import java.util.zip.ZipFile
@@ -152,6 +153,7 @@ fun main(args: Array<String>) {
             "dpt" -> runDptPipeline(apk, outDir, inspect, crack, debug, dumpManifest, aesKeyHex, pkgOverride, buildKeyOverride, buildKeysFile, ::hexToBytes)
             "lsparanoid" -> runLspPipeline(apk, outDir, debug)
             "ark" -> runArkPipeline(apk, outDir, debug, arkOpts)
+            "b2al" -> runB2alPipeline(apk, outDir, debug, appOverride)
             "pairip" -> runPairip(apk, outDir, debug)
             "auto-all" -> runAutoAll(apk, outDir, debug, arkOpts)
             else -> throw IllegalStateException("unknown mode: $chosen")
@@ -164,14 +166,16 @@ fun main(args: Array<String>) {
     }
 }
 
-enum class DetectedPacker { DPT, LSPARANOID, ARK, NONE, BOTH }
+enum class DetectedPacker { DPT, LSPARANOID, ARK, B2AL, NONE, BOTH }
 
 private fun detectPacker(apk: File): DetectedPacker {
     val dpt = runCatching { DptDetector.detect(apk).detected }.getOrDefault(false)
     val lsp = runCatching { LsparanoidDetector.isLsparanoid(apk) }.getOrDefault(false)
     val ark = runCatching { ArkDetector.detect(apk).detected }.getOrDefault(false)
+    val b2al = runCatching { B2AlDetector.detect(apk).detected }.getOrDefault(false)
     return when {
         dpt && lsp -> DetectedPacker.BOTH
+        b2al -> DetectedPacker.B2AL
         dpt -> DetectedPacker.DPT
         lsp -> DetectedPacker.LSPARANOID
         ark -> DetectedPacker.ARK
@@ -193,9 +197,10 @@ private fun resolveMode(apk: File, mode: String?): String {
             "lsp", "lsparanoid", "2" -> "lsparanoid"
             "ark", "360", "jiagu", "3" -> "ark"
             "pairip", "repairip", "4" -> "pairip"
+            "b2al", "b2", "proxy", "6" -> "b2al"
             "auto-all", "oneshot", "full", "single", "5" -> "auto-all"
             "auto" -> autoPacker(apk)
-            else -> throw IllegalStateException("unknown mode '$given' (use dpt | lsparanoid | ark | pairip | auto | auto-all)")
+            else -> throw IllegalStateException("unknown mode '$given' (use dpt | lsparanoid | ark | pairip | b2al | auto | auto-all)")
         }
     }
     val detected = detectPacker(apk)
@@ -209,6 +214,7 @@ private fun resolveMode(apk: File, mode: String?): String {
         println(uiRow("  3) 360 Jiagu (Ark)${mark(detected == DetectedPacker.ARK)}"))
         println(uiRow("  4) PairipProtect   (RePairip)"))
         println(uiRow("  5) AUTO all-in-one *"))
+        println(uiRow("  6) B2Al Proxy Packer${mark(detected == DetectedPacker.B2AL)}"))
         println(uiRow(""))
         println(uiRow("detected: ${detectedLabel(detected)}"))
         println(uiBot())
@@ -221,6 +227,7 @@ private fun resolveMode(apk: File, mode: String?): String {
             "3", "ark", "360", "jiagu" -> "ark"
             "4", "pairip", "repairip" -> "pairip"
             "5", "auto-all", "oneshot", "full", "single" -> "auto-all"
+            "6", "b2al", "b2", "proxy" -> "b2al"
             "", null -> autoPacker(apk)
             else -> throw IllegalStateException("invalid choice '$line'")
         }
@@ -233,6 +240,7 @@ private fun detectedLabel(d: DetectedPacker) = when (d) {
     DetectedPacker.DPT -> "DPT Shell"
     DetectedPacker.LSPARANOID -> "LSParanoid"
     DetectedPacker.ARK -> "360 Jiagu / ArkShell"
+    DetectedPacker.B2AL -> "B2Al proxy packer"
     DetectedPacker.BOTH -> "DPT Shell + LSParanoid"
     DetectedPacker.NONE -> "none (unknown apk)"
 }
@@ -241,6 +249,7 @@ private fun autoPacker(apk: File): String = when (detectPacker(apk)) {
     DetectedPacker.DPT -> "dpt"
     DetectedPacker.LSPARANOID -> "lsparanoid"
     DetectedPacker.ARK -> "ark"
+    DetectedPacker.B2AL -> "b2al"
     DetectedPacker.BOTH -> throw IllegalStateException("apk has multiple protections (dpt/lsparanoid) - use --mode dpt|lsparanoid explicitly")
     DetectedPacker.NONE -> profileDispatch(apk)
 }
@@ -347,6 +356,7 @@ private fun runAutoAll(apk: File, outDir: File, debug: Boolean, opts: ArkOptions
                     if (fakeArkRoute(apk, outDir)) return
                     runArkPipeline(apk, outDir, debug, opts)
                 }
+                "b2al" -> runB2alPipeline(apk, outDir, debug, opts.appOverride)
                 else -> throw IllegalStateException("classic fallback produced '${classic}'")
             }
             profile.layers.first().let { top ->
@@ -375,6 +385,7 @@ private fun runAutoAll(apk: File, outDir: File, debug: Boolean, opts: ArkOptions
             if (fakeArkRoute(apk, outDir)) return
             runArkPipeline(apk, outDir, debug, opts)
         }
+        "b2al" -> runB2alPipeline(apk, outDir, debug, opts.appOverride)
         "pairip" -> runPairip(apk, outDir, debug)
         else -> throw IllegalStateException("unsupported auto strategy: ${layer.strategy}")
     }
@@ -432,9 +443,11 @@ private fun fallbackClassic(apk: File): String? {
     val dpt = runCatching { DptDetector.detect(apk).detected }.getOrDefault(false)
     val lsp = runCatching { LsparanoidDetector.isLsparanoid(apk) }.getOrDefault(false)
     val ark = runCatching { ArkDetector.detect(apk).detected }.getOrDefault(false)
+    val b2al = runCatching { B2AlDetector.detect(apk).detected }.getOrDefault(false)
     return when {
         dpt -> "dpt"
         lsp -> "lsparanoid"
+        b2al -> "b2al"
         ark -> "ark"
         else -> null
     }
@@ -506,16 +519,17 @@ private fun printUsage() {
     println(" options:")
     println("   -i, --input <apk>       input apk (or first positional arg)")
     println("   -o, --output <dir>      output directory")
-    println("   --mode <dpt|lsparanoid|ark|pairip|auto|auto-all>")
+    println("   --mode <dpt|lsparanoid|ark|pairip|b2al|auto|auto-all>")
     println("                           dpt: DPT Shell payload restore")
     println("                           lsparanoid: LSParanoid string deobfuscation")
     println("                           ark: 360 Jiagu / ArkShell runtime dump + rebuild")
+    println("                           b2al: B2Al proxy packer (POWER~MODS) chain recover + rebuild")
     println("                           pairip: PairipProtect deprotection (RePairip)")
     println("                           auto: detect automatically (default: interactive)")
     println("                           auto-all: one-shot pipeline - extract embedded")
     println("                                     apk if present, then auto-pick & run")
     println("                                     (run.sh defaults to this)")
-    println("       (--mode 1/2/3/4/5 in the menu also works)")
+    println("       (--mode 1/2/3/4/5/6 in the menu also works)")
     println("   --inspect               print layout info only (dpt)")
     println("   --crack                 attempt DPT payload key recovery (default)")
     println("   --debug                 verbose output")
@@ -897,6 +911,79 @@ private fun runArkPipeline(apk: File, outDir: File, debug: Boolean, opts: ArkOpt
 }
 
 // ---------------------------------------------------------------------------
+// B2Al proxy packer (POWER~MODS) pipeline (static chain recover + rebuild)
+// ---------------------------------------------------------------------------
+
+private fun runB2alPipeline(apk: File, outDir: File, debug: Boolean, appOverride: String?) {
+    val start = System.currentTimeMillis()
+    banner()
+    targetCard(apk)
+
+    // Stage 1 - detect + recover the record chain
+    val t1 = System.currentTimeMillis()
+    val info = runWithSpinner(1, "Detecting B2Al proxy carrier") {
+        val r = B2AlDetector.detect(apk)
+        if (!r.detected) throw IllegalStateException("apk is not a B2Al proxy packer (${r.reasons.lastOrNull() ?: "no carrier chain"})")
+        r
+    }
+    info.reasons.forEach { println("   $it") }
+    stageDone(System.currentTimeMillis() - t1)
+
+    // Stage 2 - write recovered dexes
+    val t2 = System.currentTimeMillis()
+    runWithSpinner(2, "Recovering ${info.records.size} dex records") {
+        val patchedDir = File(outDir, "patched_dex")
+        patchedDir.deleteRecursively(); patchedDir.mkdirs()
+        for (rec in info.records) {
+            val name = if (rec.index == 1) "classes.dex" else "classes${rec.index}.dex"
+            File(patchedDir, name).writeBytes(rec.data)
+        }
+    }
+    stageDone(System.currentTimeMillis() - t2)
+
+    // Stage 3 - real Application + manifest
+    val t3 = System.currentTimeMillis()
+    val realApp = runWithSpinner(3, "Restoring Application entry point") {
+        val manifestBytes = java.util.zip.ZipFile(apk).use { z -> z.getEntry("AndroidManifest.xml")?.let { z.getInputStream(it).readBytes() } }
+            ?: throw IllegalStateException("no AndroidManifest.xml in apk")
+        val payloadDexes = File(outDir, "patched_dex").listFiles { f, n -> n.startsWith("classes") && n.endsWith(".dex") }
+            ?.sortedBy { f ->
+                if (f.name == "classes.dex") 0 else f.name.removePrefix("classes").removeSuffix(".dex").toInt()
+            }?.map { it.readBytes() } ?: emptyList()
+        val real = appOverride
+            ?: info.applicationClass
+            ?: ArkDexTools.discoverRealApplication(null, payloadDexes, null)
+            ?: throw IllegalStateException("could not find the real Application class in the recovered dexes - pass --application <com.x.RealApp>")
+        println("\n   application: $real")
+        manifestBytes to real
+    }
+    stageDone(System.currentTimeMillis() - t3)
+
+    // Stage 4 - rebuild + sign
+    val t4 = System.currentTimeMillis()
+    runWithSpinner(4, "Rebuilding APK") {
+        val (manifestBytes, realApp) = realApp
+        val patchedManifest = com.dpt.unpack.axml.AxmlManifest.setApplicationName(manifestBytes, realApp.replace('/', '.'))
+        val unsigned = File(outDir, "unsigned.apk")
+        ArkRebuilder.rebuild(apk, File(outDir, "patched_dex"), patchedManifest, unsigned)
+        signAndDeliver(unsigned, apk.name.removeSuffix(".apk") + "-unpacked.apk", outDir)
+    }
+    stageDone(System.currentTimeMillis() - t4)
+
+    // Stage 5 - finalize
+    val t5 = System.currentTimeMillis()
+    val finalName = apk.name.removeSuffix(".apk") + "-unpacked.apk"
+    val finalApk = File(outDir, finalName)
+    if (!finalApk.isFile) throw IllegalStateException("output apk missing: ${finalApk.path}")
+    val sha = sha256(finalApk.readBytes())
+    stageDone(System.currentTimeMillis() - t5)
+
+    val removed = tidyOutdir(outDir, setOf(finalName))
+    if (removed > 0) println("   ${ANSI_GREEN}✓ cleaned $removed intermediate files${ANSI_RESET}")
+    resultCard(finalName, outDir, sha, finalApk.length(), System.currentTimeMillis() - start)
+}
+
+// ---------------------------------------------------------------------------
 // Analysis-only mode: profile the protection stack, pick the unpacker
 // ---------------------------------------------------------------------------
 
@@ -983,6 +1070,7 @@ private fun strategyLabel(s: String) = when (s) {
     "dpt" -> "DPT Shell restore (static)"
     "lsparanoid" -> "LSParanoid deobfuscate (static)"
     "ark" -> "360 Jiagu / ArkShell dump (device)"
+    "b2al" -> "B2Al proxy packer restore (static)"
     "pairip" -> "PairipProtect deprotection (RePairip)"
     "embedded" -> "extract embedded origin.apk (SignatureKiller re-pack)"
     "frida" -> "frida runtime dump (KeyDive/frida-dexdump)"

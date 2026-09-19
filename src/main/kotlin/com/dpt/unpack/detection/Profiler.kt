@@ -1,5 +1,6 @@
 package com.dpt.unpack.detection
 
+import com.dpt.unpack.b2al.B2AlDetector
 import java.io.File
 import java.util.zip.ZipFile
 
@@ -56,10 +57,22 @@ object Profiler {
         // (e.g. "com.qihoo", "StubApplication") stay in the scope lists to add
         // confidence weight but cannot trigger a false positive on their own.
         val anchors: List<String> = emptyList(),
+        // A precise binary gate (raw classes*.dex buffers). When present it
+        // replaces the text-anchor requirement and the layer is only reported
+        // when the gate actually validates (e.g. a decodable B2Al record chain).
+        val gate: ((List<ByteArray>) -> Boolean)? = null,
     )
 
     private val FINGERPRINTS = listOf(
         // --- owned DPT pipelines first ---
+        Fingerprint(
+            id = "b2al", name = "B2Al proxy packer (POWER~MODS)", kind = "PACKER",
+            strategy = "b2al", tool = null,
+            dex = listOf("b2al"),
+            manifest = listOf("b2al", "b2al.encryp"),
+            anchors = listOf("b2al"),
+            gate = { buffers -> B2AlDetector.isCarrierAmong(buffers) },
+        ),
         Fingerprint(
             id = "ark360", name = "360 Qihoo Jiagu / ArkShell", kind = "PACKER",
             strategy = "ark", tool = null,
@@ -203,15 +216,16 @@ object Profiler {
             val manifestBytes = zip.getEntry("AndroidManifest.xml")
                 ?.let { zip.getInputStream(it).readAllBytes() }
 
-            // Collect dex texts once; big dexes share one scan pass.
-            val dexTexts = entries
+            // Collect dex texts once; big dexes share one scan pass. The raw
+            // buffers are kept for fingerprints that carry a binary gate.
+            val dexBuffers = entries
                 .filter { it.startsWith("classes") && it.endsWith(".dex") }
                 .mapNotNull { e -> zip.getEntry(e)?.let { zip.getInputStream(it).readAllBytes() } }
-                .map { toLatin1(it) }
+            val dexTexts = dexBuffers.map { toLatin1(it) }
 
             val manifestText = manifestBytes?.let { toLatin1(it) } ?: ""
 
-            val layers = mutableListOf<Layer>()
+val layers = mutableListOf<Layer>()
             for (fp in FINGERPRINTS) {
                 val hits = mutableListOf<String>()
                 if (fp.dex.isNotEmpty()) {
@@ -219,7 +233,7 @@ object Profiler {
                     found.forEach { hits.add("dex marker: $it") }
                 }
                 if (fp.native.isNotEmpty()) {
-                    val found = nativeLibs.filter { l -> fp.native.any { l.contains(it, ignoreCase = true) } }
+                    val found = nativeLibs.filter { l -> fp.native.any { it.contains(l, ignoreCase = true) } }
                     found.forEach { hits.add("native lib: $it") }
                 }
                 if (fp.asset.isNotEmpty()) {
@@ -229,25 +243,38 @@ object Profiler {
                 if (fp.manifest.isNotEmpty()) {
                     fp.manifest.filter { manifestText.contains(it, ignoreCase = true) }.forEach { hits.add("manifest: $it") }
                 }
-                // Anchor gate: report the layer only if a distinctive marker was
-                // actually seen in the binary scopes (dex / native / asset).
-                val anchorOk = fp.anchors.isEmpty() || fp.anchors.any { a ->
-                    dexTexts.any { it.contains(a, ignoreCase = true) } ||
-                        nativeLibs.any { it.contains(a, ignoreCase = true) } ||
-                        entries.any { it.contains(a, ignoreCase = true) }
-                }
-                if (anchorOk && hits.isNotEmpty()) {
-                    layers.add(
-                        Layer(
-                            id = fp.id, name = fp.name, kind = fp.kind,
-                            strategy = fp.strategy, tool = fp.tool,
-                            hits = hits.size, likelihood = likelihood(hits.size),
-                            evidence = hits,
+                // Gate: a precise binary check replaces the text-anchor test
+                // (the B2Al carrier is a dex blob whose chain either decodes or not).
+                val gateOk = fp.gate?.invoke(dexBuffers) ?: true
+                val anchorOk = fp.anchors.isEmpty() ||
+                    fp.gate != null ||
+                    fp.anchors.any { a ->
+                        dexTexts.any { it.contains(a, ignoreCase = true) } ||
+                            nativeLibs.any { it.contains(a, ignoreCase = true) } ||
+                            entries.any { it.contains(a, ignoreCase = true) }
+                    }
+                if (gateOk && anchorOk) {
+                    if (fp.gate != null && hits.isEmpty()) {
+                        hits.add("gate: decodable record chain in classes*.dex")
+                    }
+                    if (hits.isNotEmpty()) {
+                        layers.add(
+                            Layer(
+                                id = fp.id, name = fp.name, kind = fp.kind,
+                                strategy = fp.strategy, tool = fp.tool,
+                                hits = hits.size, likelihood = likelihood(hits.size),
+                                evidence = hits,
+                            )
                         )
-                    )
+                    }
                 }
             }
             layers.sortByDescending { it.likelihood }
+
+            // A real B2Al chain also matches the "b2al" text markers of the 360
+            // Ark fingerprint; the precise chain gate already decided it, so drop
+            // the ark layer (its runtime dump route would mis-handle this packer).
+            if (layers.any { it.id == "b2al" }) layers.removeAll { it.id == "ark360" }
 
             // Decoy scan: "fake 360" placeholders (tiny text libjiagu*.a, Art-Jiagu
             // NeoArk markers) and SignatureKiller re-packs (real app embedded as
@@ -288,7 +315,7 @@ object Profiler {
     }
 
     /** Layers that the CLI currently owns a pipeline for. */
-    fun ownedStrategies(): Set<String> = setOf("dpt", "lsparanoid", "ark")
+    fun ownedStrategies(): Set<String> = setOf("dpt", "lsparanoid", "ark", "b2al")
 
     fun isRawApk(profile: Profile): Boolean = profile.layers.isEmpty() && profile.junkSuspects.isEmpty()
 
