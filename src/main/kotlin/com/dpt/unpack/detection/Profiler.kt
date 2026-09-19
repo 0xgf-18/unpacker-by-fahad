@@ -66,7 +66,7 @@ object Profiler {
     private val FINGERPRINTS = listOf(
         // --- owned DPT pipelines first ---
         Fingerprint(
-            id = "b2al", name = "B2Al proxy packer (POWER~MODS)", kind = "PACKER",
+            id = "b2al", name = "B2Al proxy packer", kind = "PACKER",
             strategy = "b2al", tool = null,
             dex = listOf("b2al"),
             manifest = listOf("b2al", "b2al.encryp"),

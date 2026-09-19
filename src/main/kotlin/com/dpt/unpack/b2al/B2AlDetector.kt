@@ -5,7 +5,8 @@ import java.security.MessageDigest
 import java.util.zip.ZipFile
 
 /**
- * Detection + recovery for "Proxy/AXB-mod" style packers (B2Al / POWER~MODS).
+ * Detection + recovery for B2Al-style proxy packers (encrypted DEX record
+ * chain + XOR trailer).
  *
  * The carrier is a `classes*.dex` whose body is a chain of encrypted DEX
  * records plus a trailer near EOF:

@@ -26,7 +26,7 @@ Maintained by [Fahad (0xgf18)](https://github.com/0xgf18).
   - [DPT Shell pipeline](#dpt-shell-pipeline)
   - [LSParanoid pipeline](#lsparanoid-pipeline)
   - [360 Jiagu / ArkShell pipeline](#360-jiagu--arkshell-pipeline)
-  - [B2Al proxy packer pipeline (POWER~MODS)](#b2al-proxy-packer-pipeline-powermods)
+  - [B2Al proxy packer pipeline](#b2al-proxy-packer-pipeline)
   - [PairipProtect pipeline](#pairipprotect-pipeline)
 - [Outputs, signing & keystore](#outputs-signing--keystore)
 - [Environment variables](#environment-variables)
@@ -70,7 +70,7 @@ Maintained by [Fahad (0xgf18)](https://github.com/0xgf18).
 | `dpt` | DPT Shell | static payload restore + AES key recovery | no |
 | `lsparanoid` | LSParanoid | static string deobfuscation (smali rewrite) | no |
 | `ark` | 360 Jiagu / ArkShell | runtime dump + rebuild | yes (su / adb) |
-| `b2al` | B2Al proxy packer (POWER~MODS) | static record-chain recover + rebuild | no |
+| `b2al` | B2Al proxy packer | static record-chain recover + rebuild | no |
 | `pairip` | PairipProtect (VM) | RePairip deprotection | no |
 | `embedded` | SignatureKiller / fake-360 re-packs | extract embedded `origin.apk`, recurse | no |
 
@@ -296,7 +296,7 @@ Runtime dump, requires a device (or an existing dump):
    `Application` subclass across the payload dexes and rewrites the manifest.
 5. **Rebuild + sign** — `ArkRebuilder` + signing to `<name>-unpacked.apk`.
 
-### B2Al proxy packer pipeline (POWER~MODS)
+### B2Al proxy packer pipeline
 
 Fully static, no device. The shipped `classes.dex` is a small proxy stub whose
 body is a chain of XOR-encrypted DEX records plus a trailer (never assumes a
@@ -405,7 +405,7 @@ bash run.sh app.apk --mode dpt
 bash run.sh app.apk --mode lsparanoid
 bash run.sh app.apk --mode pairip
 
-# B2Al proxy packer (POWER~MODS): static record-chain recover + rebuild
+# B2Al proxy packer: static record-chain recover + rebuild
 bash run.sh app.apk --mode b2al
 
 # fake-360: SignatureKiller repack (has origin.apk) is unpacked statically
@@ -434,7 +434,7 @@ Most routes run entirely on the machine/phone without touching a device:
 | --- | --- | --- |
 | DPT (dex-shell) | ✅ | payload restore + key recovery, offline |
 | LSParanoid | ✅ | smali-level deobfuscation via local apktool |
-| B2Al proxy packer (POWER~MODS) | ✅ | static record-chain recover + multidex rebuild |
+| B2Al proxy packer | ✅ | static record-chain recover + multidex rebuild |
 | Fake-360 decoy / marker-only shell | ✅ | embedded `origin.apk` is extracted, or the readable copy is delivered (`FAKE SHELL ONLY`) |
 | SignatureKiller re-pack | ✅ | embedded `origin.apk` extracted + recursed |
 | PairipProtect translation | ✅ | offline from a captured `pairip.json` |

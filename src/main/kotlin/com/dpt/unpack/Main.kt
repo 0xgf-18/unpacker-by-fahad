@@ -523,7 +523,7 @@ private fun printUsage() {
     println("                           dpt: DPT Shell payload restore")
     println("                           lsparanoid: LSParanoid string deobfuscation")
     println("                           ark: 360 Jiagu / ArkShell runtime dump + rebuild")
-    println("                           b2al: B2Al proxy packer (POWER~MODS) chain recover + rebuild")
+    println("                           b2al: B2Al proxy packer chain recover + rebuild")
     println("                           pairip: PairipProtect deprotection (RePairip)")
     println("                           auto: detect automatically (default: interactive)")
     println("                           auto-all: one-shot pipeline - extract embedded")
@@ -911,7 +911,7 @@ private fun runArkPipeline(apk: File, outDir: File, debug: Boolean, opts: ArkOpt
 }
 
 // ---------------------------------------------------------------------------
-// B2Al proxy packer (POWER~MODS) pipeline (static chain recover + rebuild)
+// B2Al proxy packer pipeline (static chain recover + rebuild)
 // ---------------------------------------------------------------------------
 
 private fun runB2alPipeline(apk: File, outDir: File, debug: Boolean, appOverride: String?) {
