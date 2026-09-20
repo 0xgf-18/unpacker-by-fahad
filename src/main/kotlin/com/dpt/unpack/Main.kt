@@ -732,6 +732,13 @@ private fun signAndDeliver(rebuilt: File, finalName: String, outDir: File) {
     }
 }
 
+/** Prints which packer remnants (stub libs / decoy assets) were scrubbed, if any. */
+private fun reportScrubbed(scrubbed: List<String>) {
+    if (scrubbed.isEmpty()) return
+    println("   ${ANSI_GREEN}✓ scrubbed ${scrubbed.size} packer remnant(s):${ANSI_RESET}")
+    for (s in scrubbed) println("     - $s")
+}
+
 // ---------------------------------------------------------------------------
 // LSParanoid pipeline (string deobfuscation)
 // ---------------------------------------------------------------------------
@@ -953,7 +960,8 @@ private fun runArkPipeline(apk: File, outDir: File, debug: Boolean, opts: ArkOpt
             com.dpt.unpack.axml.AxmlManifest.restoreApplication(manifestBytes)
         }
         val unsigned = File(outDir, "unsigned.apk")
-        ArkRebuilder.rebuild(apk, File(outDir, "patched_dex"), patchedManifest, unsigned)
+        val scrubbed = ArkRebuilder.rebuild(apk, File(outDir, "patched_dex"), patchedManifest, unsigned)
+        reportScrubbed(scrubbed)
         signAndDeliver(unsigned, apk.name.removeSuffix(".apk") + "-unpacked.apk", outDir)
     }
     stageDone(System.currentTimeMillis() - t5)
@@ -1022,7 +1030,8 @@ private fun runB2alPipeline(apk: File, outDir: File, debug: Boolean, appOverride
         val (manifestBytes, realApp) = realApp
         val patchedManifest = com.dpt.unpack.axml.AxmlManifest.setApplicationName(manifestBytes, realApp.replace('/', '.'))
         val unsigned = File(outDir, "unsigned.apk")
-        ArkRebuilder.rebuild(apk, File(outDir, "patched_dex"), patchedManifest, unsigned)
+        val scrubbed = ArkRebuilder.rebuild(apk, File(outDir, "patched_dex"), patchedManifest, unsigned)
+        reportScrubbed(scrubbed)
         signAndDeliver(unsigned, apk.name.removeSuffix(".apk") + "-unpacked.apk", outDir)
     }
     stageDone(System.currentTimeMillis() - t4)

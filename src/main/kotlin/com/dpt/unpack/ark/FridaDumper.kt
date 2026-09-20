@@ -20,6 +20,14 @@ object FridaDumper {
     private const val DEFAULT_HOST = "127.0.0.1:27042"
     private const val MIN_DEX_BYTES = 1024
 
+    /** Boot-classpath jars that the deep scan captures but are NOT app payload. */
+    private val BOOT_CLASS_PREFIXES = listOf(
+        "android.", "com.android.", "java.", "javax.", "javacard.", "jdk.", "sun.",
+        "dalvik.", "libcore.", "kotlin.", "kotlinx.", "org.jetbrains.", "org.intellij.",
+        "org.json.", "org.w3c.", "org.xmlpull.", "org.ccil.", "org.apache.harmony.",
+        "org.apache.http.", "org.conscrypt.", "org.bouncycastle.",
+    )
+
     /** Dumps every unique dex image found in the target process memory. */
     fun dumpInMemory(
         device: ArkDevice,
@@ -143,6 +151,7 @@ object FridaDumper {
             if (raw.size < MIN_DEX_BYTES) continue
             val key = runCatching { ArkDexTools.definedClasses(raw).toSet() }
                 .getOrNull()?.takeIf { it.isNotEmpty() } ?: setOf(f.name)
+            if (isBootOnly(key)) continue // boot-classpath jar swept up by the deep scan, not app payload
             val prev = byClasses[key]
             if (prev == null || raw.size > prev.bytes.size) {
                 byClasses[key] = DumpPayload(f.name, raw)
@@ -153,6 +162,10 @@ object FridaDumper {
         }
         return byClasses.values.toList()
     }
+
+    /** True when every class in the dex belongs to the boot-classpath (framework), not the app. */
+    private fun isBootOnly(classes: Set<String>): Boolean =
+        classes.isNotEmpty() && classes.all { c -> BOOT_CLASS_PREFIXES.any { c.startsWith(it) } }
 
     /** classes12.dex -> 12, classes.dex -> 1 (stable ordering). */
     private fun dexSortKey(name: String): Int {

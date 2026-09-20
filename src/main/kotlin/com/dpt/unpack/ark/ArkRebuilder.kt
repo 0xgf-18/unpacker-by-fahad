@@ -7,20 +7,25 @@ import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
 
 /**
- * Rebuilds an unpacked 360-Jiagu APK:
+ * Rebuilds an unpacked 360-Jiagu / B2Al APK:
  *  - drops the shell's stub classes*.dex (the only thing that shipped);
  *  - installs the recovered payload dexes;
  *  - drops old signing blocks;
  *  - writes the manifest with the real <application android:name>;
- *  - transparently keeps every resource / asset / native lib (shell remnants
- *    such as assets/libjiagu_mips.a are harmless once the stub dex is gone).
+ *  - scrubs the packer's native decrypt stubs (libB2alStub / libArkStub /
+ *    libJiagu), which are dead weight once the payload dex is present and are
+ *    never referenced by the recovered code (verified against the app dex);
+ *  - keeps every resource / asset / native lib - assets .so files in particular
+ *    are often the app's OWN runtime engine, never strip them;
+ *  - returns the list of scrubbed entry names.
  */
 object ArkRebuilder {
 
     private val DEX_NAME = Regex("classes\\d+\\.dex")
 
-    fun rebuild(apk: File, patchedDir: File, manifest: ByteArray, out: File) {
+    fun rebuild(apk: File, patchedDir: File, manifest: ByteArray, out: File): List<String> {
         out.parentFile?.mkdirs()
+        val scrubbed = ArrayList<String>()
         val dropSig = { name: String ->
             name.startsWith("META-INF/") && (name.endsWith(".MF") ||
                 name.endsWith(".SF") || name.endsWith(".RSA") || name.endsWith(".DSA") ||
@@ -40,6 +45,10 @@ object ArkRebuilder {
                     if (name == "META-INF/MANIFEST.MF") continue
                     if (name.startsWith("classes") && name.endsWith(".dex")) continue // old shell stub
                     if (dropSig(name)) continue
+                    if (isPackerStubLib(name)) {
+                        scrubbed.add("$name (${e.size} B)")
+                        continue
+                    }
                     val bytes = zip.getInputStream(e).readBytes()
                     if (mustStore(name)) {
                         putStored(zos, name, bytes)
@@ -59,7 +68,12 @@ object ArkRebuilder {
                 }
             }
         }
+        return scrubbed
     }
+
+    private fun isPackerStubLib(name: String): Boolean =
+        name.startsWith("lib/") && name.endsWith(".so") &&
+            (name.contains("B2alStub") || name.contains("ArkStub") || name.contains("JiaguStub"))
 
     private fun mustStore(name: String): Boolean =
         name == "resources.arsc" ||
