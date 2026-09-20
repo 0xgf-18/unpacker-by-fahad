@@ -15,6 +15,7 @@ import com.dpt.unpack.tools.RePairipTool
 import com.dpt.unpack.validate.DexValidator
 import com.dpt.unpack.ark.ArkDetector
 import com.dpt.unpack.ark.ArkDumper
+import com.dpt.unpack.ark.FridaDumper
 import com.dpt.unpack.ark.ArkDexTools
 import com.dpt.unpack.ark.ArkOatExtractor
 import com.dpt.unpack.ark.ArkRebuilder
@@ -75,6 +76,9 @@ fun main(args: Array<String>) {
     var adbPath: String? = null
     var timeoutSec: String? = null
     var dumpDir: String? = null
+    var dumpMode: String? = null
+    var fridaHost: String? = null
+    var fridaPython: String? = null
     var appOverride: String? = null
     var noInstall = false
     var noLaunch = false
@@ -98,6 +102,9 @@ fun main(args: Array<String>) {
             "--adb" -> adbPath = args.getOrNull(++i)
             "--timeout" -> timeoutSec = args.getOrNull(++i)
             "--dump-dir" -> dumpDir = args.getOrNull(++i)
+            "--dump" -> dumpMode = args.getOrNull(++i)
+            "--frida-host" -> fridaHost = args.getOrNull(++i)
+            "--frida-python" -> fridaPython = args.getOrNull(++i)
             "--application" -> appOverride = args.getOrNull(++i)
             "--no-install" -> noInstall = true
             "--no-launch" -> noLaunch = true
@@ -144,6 +151,9 @@ fun main(args: Array<String>) {
             adbPath = adbPath,
             timeoutSec = timeoutSec?.toIntOrNull() ?: 120,
             dumpDir = dumpDir,
+            dumpMode = dumpMode,
+            fridaHost = fridaHost,
+            fridaPython = fridaPython,
             noInstall = noInstall,
             noLaunch = noLaunch,
             appOverride = appOverride,
@@ -548,7 +558,16 @@ private fun printUsage() {
     println("                           works for --device local). bluestacks is adb-only.")
     println("   --adb <path>            path to adb binary (default: PATH / \$ANDROID_HOME)")
     println("   --timeout <sec>         max seconds to wait for payload decrypt (default 120)")
-    println("   --dump-dir <dir>        skip device: read already-dumped ark_payload_*.dex from dir")
+    println("   --dump <disk|frida|auto>payload collection strategy (default disk)")
+    println("                           disk: poll code_cache for ark_payload_*.dex")
+    println("                           frida: deep-scan the live process with frida-dexdump")
+    println("                                 (for in-memory loaders that never write to disk)")
+    println("                           auto: try disk first, fall back to frida")
+    println("   --dump-dir <dir>        skip device: read already-dumped payloads from dir")
+    println("                           (accepts ark_payload_*.dex or frida-dexdump classes*.dex)")
+    println("   --frida-host <host:prt> frida-server endpoint (default 127.0.0.1:27042)")
+    println("   --frida-python <cmd>    python with the frida_dexdump module (default: auto)")
+    println("                           (also honored: \$DPT_PYTHON)")
     println("   --application <class>   force real Application class for the manifest")
     println("   --no-install            do not (re)install the apk on the device")
     println("   --no-launch             do not start the app (for use with --dump-dir)")
@@ -798,6 +817,9 @@ private data class ArkOptions(
     val adbPath: String?,
     val timeoutSec: Int,
     val dumpDir: String?,
+    val dumpMode: String?,
+    val fridaHost: String?,
+    val fridaPython: String?,
     val noInstall: Boolean,
     val noLaunch: Boolean,
     val appOverride: String?,
@@ -822,20 +844,22 @@ private fun runArkPipeline(apk: File, outDir: File, debug: Boolean, opts: ArkOpt
     val pkg = opts.pkgOverride ?: info.packageName
         ?: throw IllegalStateException("could not read package name from manifest (use --package)")
 
-    // Stage 2 - collect payload containers (device dump or local --dump-dir)
+    // Stage 2 - collect payload containers (device dump, frida in-memory dump or local --dump-dir)
     val t2 = System.currentTimeMillis()
+    val dumpMode = opts.dumpMode ?: "disk"
     val rawPayloads = if (opts.dumpDir != null) {
         runWithSpinner(2, "Reading dumped payloads from ${opts.dumpDir}") {
             val dir = File(opts.dumpDir)
-            dir.listFiles { f, name -> name.startsWith("ark_payload") && name.endsWith(".dex") }
+            dir.listFiles { f, name -> (name.startsWith("ark_payload") || name.startsWith("classes")) && name.endsWith(".dex") }
                 ?.sortedBy { f ->
-                    f.name.removePrefix("ark_payload_").removeSuffix(".dex").toIntOrNull() ?: 0
+                    val m = Regex("(\\d+)").find(f.name.substringAfterLast("_"))
+                    if (f.name == "classes.dex") 0 else m?.groupValues?.get(1)?.toIntOrNull() ?: 0
                 }?.map { com.dpt.unpack.ark.DumpPayload(it.name, it.readBytes()) }
-                ?.ifEmpty { throw IllegalStateException("no ark_payload_*.dex files in ${opts.dumpDir}") }
+                ?.ifEmpty { throw IllegalStateException("no ark_payload_*.dex/classes*.dex files in ${opts.dumpDir}") }
                 ?: throw IllegalStateException("cannot read ${opts.dumpDir}")
         }
     } else {
-        runWithSpinner(2, "Dumping payloads (${info.packageName ?: pkg}) via ${opts.deviceType}") {
+        runWithSpinner(2, "Dumping payloads (${info.packageName ?: pkg}) via ${opts.deviceType}" + if (dumpMode == "frida") " + frida" else "") {
             val device = ArkDumper.device(opts.deviceType, opts.rootMode, opts.adbPath)
             println("\n   device: ${device.hint()}   package: $pkg")
             if (!opts.noInstall) {
@@ -848,7 +872,32 @@ private fun runArkPipeline(apk: File, outDir: File, debug: Boolean, opts: ArkOpt
                 device.root("$launch 2>/dev/null; true")
                 println("   launched: $launch  (waiting up to ${opts.timeoutSec}s for decryption...)")
             }
-            ArkDumper.pullPayloads(device, pkg, opts.timeoutSec * 1000L)
+            if (dumpMode == "frida") {
+                println("   -> frida in-memory dump (deep scan of the live process)")
+                FridaDumper.dumpInMemory(
+                    device, opts.deviceType, opts.adbPath, pkg,
+                    timeoutSec = opts.timeoutSec, host = opts.fridaHost ?: "127.0.0.1:27042",
+                    python = opts.fridaPython,
+                )
+            } else {
+                try {
+                    ArkDumper.pullPayloads(device, pkg, opts.timeoutSec * 1000L)
+                } catch (e: IllegalStateException) {
+                    // in-memory loaders never produce ark_payload_*.dex on disk ->
+                    // fall back to a live frida scan when the user allows it
+                    if (dumpMode == "auto") {
+                        println("   ${e.message?.lineSequence()?.firstOrNull()}")
+                        println("   -> falling back to frida in-memory dump (deep scan)")
+                        FridaDumper.dumpInMemory(
+                            device, opts.deviceType, opts.adbPath, pkg,
+                            timeoutSec = opts.timeoutSec, host = opts.fridaHost ?: "127.0.0.1:27042",
+                            python = opts.fridaPython,
+                        )
+                    } else {
+                        throw e
+                    }
+                }
+            }
         }
     }
     println("   payload containers: ${rawPayloads.size} (${fmtSize(rawPayloads.sumOf { it.bytes.size.toLong() })})")
@@ -882,11 +931,15 @@ private fun runArkPipeline(apk: File, outDir: File, debug: Boolean, opts: ArkOpt
                 if (f.name == "classes.dex") 0 else f.name.removePrefix("classes").removeSuffix(".dex").toInt()
             }?.map { it.readBytes() } ?: emptyList()
         val real = ArkDexTools.discoverRealApplication(stub, payloadDexes, opts.appOverride)
-            ?: throw IllegalStateException(
-                "could not find a real Application class in payloads - pass --application <com.x.RealApp>"
-            )
-        println("\n   application: $real")
-        manifestBytes to real
+        if (real != null) {
+            println("\n   application: $real")
+            manifestBytes to real
+        } else {
+            // no custom Application subclass exists -> the stub hook is the only
+            // marker; dropping it lets the framework use the default Application.
+            println("\n   application: (none - default Application; stub marker stripped)")
+            manifestBytes to null
+        }
     }
     stageDone(System.currentTimeMillis() - t4)
 
@@ -894,7 +947,11 @@ private fun runArkPipeline(apk: File, outDir: File, debug: Boolean, opts: ArkOpt
     val t5 = System.currentTimeMillis()
     runWithSpinner(5, "Rebuilding APK") {
         val (manifestBytes, realApp) = realApp
-        val patchedManifest = com.dpt.unpack.axml.AxmlManifest.setApplicationName(manifestBytes, realApp)
+        val patchedManifest = if (realApp != null) {
+            com.dpt.unpack.axml.AxmlManifest.setApplicationName(manifestBytes, realApp)
+        } else {
+            com.dpt.unpack.axml.AxmlManifest.restoreApplication(manifestBytes)
+        }
         val unsigned = File(outDir, "unsigned.apk")
         ArkRebuilder.rebuild(apk, File(outDir, "patched_dex"), patchedManifest, unsigned)
         signAndDeliver(unsigned, apk.name.removeSuffix(".apk") + "-unpacked.apk", outDir)
