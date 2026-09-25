@@ -12,3 +12,16 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local artifacts
+local.properties
+gradle_out.txt
+gradle_err.txt
+build_log.txt
+
+# Test / debug artifacts
+*.apk
+test_analysis.kts
+u*.xml
+ui*.xml
+ut*.xml

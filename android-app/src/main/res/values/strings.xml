@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Unpacker by Fahad</string>
+    <string name="subtitle">APK Analysis &amp; Unpacking</string>
+    <string name="tab_installed">Installed Apps</string>
+    <string name="tab_storage">From Storage</string>
+    <string name="search_hint">Search installed apps</string>
+    <string name="no_apps">No DPT-packed apps found</string>
+    <string name="no_results">No matching applications</string>
+    <string name="loading_apps">Loading installed apps…</string>
+    <string name="error_loading">Unable to load installed applications</string>
+    <string name="btn_dump">DUMP</string>
+    <string name="btn_select_apk">Select APK</string>
+    <string name="btn_change_apk">Change</string>
+    <string name="btn_unpack">UNPACK</string>
+    <string name="section_installed">INSTALLED APPS</string>
+    <string name="section_dpt">DPT PROTECTED APPS</string>
+    <string name="section_analysis">ANALYSIS</string>
+    <string name="status_pending">Analysis pending</string>
+    <string name="status_detected">Protection detected</string>
+    <string name="status_none">No protection</string>
+    <string name="status_unknown">Unknown</string>
+    <string name="status_failed">Analysis failed</string>
+    <string name="progress_analyzing">Analyzing…</string>
+    <string name="progress_unpacking">Unpacking…</string>
+    <string name="result_success">Unpacked successfully</string>
+    <string name="result_failed">Unpack failed</string>
+    <string name="no_apk_selected">No APK selected</string>
+    <string name="choose_apk">Choose an APK to analyze</string>
+    <string name="installed_app">Installed App</string>
+</resources>

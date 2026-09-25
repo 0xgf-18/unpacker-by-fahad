@@ -1,0 +1,290 @@
+{
+  "packers": [
+    {
+      "id": "dpt_shell",
+      "name": "DPT Shell",
+      "vendor": "Unknown",
+      "category": "PACKER",
+      "detection": {
+        "native_libs": [],
+        "assets": ["OoooooOooo", "d_shell_data_001"],
+        "dex_signatures": ["com.dpt.shell"],
+        "manifest_indicators": [],
+        "structural_patterns": ["classes.dex contains appended i11111i111.zip", "Method bodies stored in assets/OoooooOooo"]
+      },
+      "extraction_method": "STATIC",
+      "supported_strategies": ["dpt"],
+      "android_versions": "5.0+",
+      "art_compatible": true,
+      "root_required": false,
+      "status": "VALIDATED",
+      "integration_status": "INTEGRATED"
+    },
+    {
+      "id": "b2al",
+      "name": "B2Al",
+      "vendor": "Unknown",
+      "category": "PACKER",
+      "detection": {
+        "native_libs": ["libB2alStub"],
+        "assets": [],
+        "dex_signatures": [],
+        "manifest_indicators": [],
+        "structural_patterns": ["Binary carrier detection via B2AlDetector"]
+      },
+      "extraction_method": "STATIC",
+      "supported_strategies": ["b2al"],
+      "android_versions": "5.0+",
+      "art_compatible": true,
+      "root_required": false,
+      "status": "VALIDATED",
+      "integration_status": "INTEGRATED"
+    },
+    {
+      "id": "lsparanoid",
+      "name": "LSParanoid",
+      "vendor": "Unknown",
+      "category": "OBFUSCATOR",
+      "detection": {
+        "native_libs": [],
+        "assets": [],
+        "dex_signatures": ["LSParanoid"],
+        "manifest_indicators": [],
+        "structural_patterns": ["Smali-level obfuscation"]
+      },
+      "extraction_method": "STATIC_DEOBFUSCATION",
+      "supported_strategies": ["lsparanoid"],
+      "android_versions": "5.0+",
+      "art_compatible": true,
+      "root_required": false,
+      "status": "VALIDATED",
+      "integration_status": "INTEGRATED"
+    },
+    {
+      "id": "360_jiagu",
+      "name": "360 Jiagu",
+      "vendor": "Qihoo 360",
+      "category": "PACKER",
+      "detection": {
+        "native_libs": ["libjiagu.so", "libjiagu_*.so", "libjiagu_art.so", "libjiagu_x86.so"],
+        "assets": [],
+        "dex_signatures": ["com.qihoo.util"],
+        "manifest_indicators": ["com.qihoo.util.StubApplication"],
+        "structural_patterns": ["Native DEX decryption", "Anti-debug via ptrace"]
+      },
+      "extraction_method": "DYNAMIC",
+      "supported_strategies": ["frida"],
+      "android_versions": "4.0-12",
+      "art_compatible": true,
+      "root_required": true,
+      "status": "RESEARCH",
+      "integration_status": "EXTERNAL_TOOL",
+      "external_tool": "BlackDex / Frida scripts"
+    },
+    {
+      "id": "bangcle",
+      "name": "Bangcle",
+      "vendor": "Bangcle",
+      "category": "PACKER",
+      "detection": {
+        "native_libs": ["libsecexe.so", "libsecmain.so", "libSecShell.so"],
+        "assets": [],
+        "dex_signatures": [],
+        "manifest_indicators": ["com.secneo.apkwrapper.ApplicationWrapper"],
+        "structural_patterns": ["Native DEX decryption"]
+      },
+      "extraction_method": "DYNAMIC",
+      "supported_strategies": ["frida"],
+      "android_versions": "4.0-11",
+      "art_compatible": true,
+      "root_required": true,
+      "status": "RESEARCH",
+      "integration_status": "EXTERNAL_TOOL",
+      "external_tool": "Frida scripts"
+    },
+    {
+      "id": "tencent_legu",
+      "name": "Tencent Legu",
+      "vendor": "Tencent",
+      "category": "PACKER",
+      "detection": {
+        "native_libs": ["libshella-*.so", "libshellx-*.so", "liblegen.so", "liblegu.so"],
+        "assets": ["mix.dex", "mixz.dex"],
+        "dex_signatures": ["com.tencent.StubShell.TxAppEntry"],
+        "manifest_indicators": ["com.tencent.StubShell.TxAppEntry"],
+        "structural_patterns": ["AES DEX encryption", "Anti-Frida checks", "Native ptrace self-attach"]
+      },
+      "extraction_method": "DYNAMIC",
+      "supported_strategies": ["frida"],
+      "android_versions": "5.0-13",
+      "art_compatible": true,
+      "root_required": true,
+      "status": "RESEARCH",
+      "integration_status": "EXTERNAL_TOOL",
+      "external_tool": "Frida scripts / frida-dexdump"
+    },
+    {
+      "id": "ijiami",
+      "name": "ijiami",
+      "vendor": "ijiami",
+      "category": "PACKER",
+      "detection": {
+        "native_libs": ["libijiami.so"],
+        "assets": [],
+        "dex_signatures": [],
+        "manifest_indicators": [],
+        "structural_patterns": ["Encrypted DEX in assets"]
+      },
+      "extraction_method": "DYNAMIC",
+      "supported_strategies": ["frida"],
+      "android_versions": "4.0-11",
+      "art_compatible": true,
+      "root_required": true,
+      "status": "RESEARCH",
+      "integration_status": "EXTERNAL_TOOL",
+      "external_tool": "DarkDex / Frida scripts"
+    },
+    {
+      "id": "baidu",
+      "name": "Baidu Protect",
+      "vendor": "Baidu",
+      "category": "PACKER",
+      "detection": {
+        "native_libs": ["libbaidu.so", "libbdt.so"],
+        "assets": [],
+        "dex_signatures": [],
+        "manifest_indicators": [],
+        "structural_patterns": ["Native DEX decryption"]
+      },
+      "extraction_method": "DYNAMIC",
+      "supported_strategies": ["frida"],
+      "android_versions": "4.0-11",
+      "art_compatible": true,
+      "root_required": true,
+      "status": "RESEARCH",
+      "integration_status": "EXTERNAL_TOOL"
+    },
+    {
+      "id": "ali_protect",
+      "name": "Ali Protect",
+      "vendor": "Alibaba",
+      "category": "PACKER",
+      "detection": {
+        "native_libs": ["libmobisec.so", "libsgmain.so"],
+        "assets": [],
+        "dex_signatures": [],
+        "manifest_indicators": [],
+        "structural_patterns": ["Native DEX decryption"]
+      },
+      "extraction_method": "DYNAMIC",
+      "supported_strategies": ["frida"],
+      "android_versions": "4.0-11",
+      "art_compatible": true,
+      "root_required": true,
+      "status": "RESEARCH",
+      "integration_status": "EXTERNAL_TOOL"
+    },
+    {
+      "id": "netease",
+      "name": "NetEase",
+      "vendor": "NetEase",
+      "category": "PACKER",
+      "detection": {
+        "native_libs": ["libnetease.so"],
+        "assets": [],
+        "dex_signatures": [],
+        "manifest_indicators": [],
+        "structural_patterns": ["Native DEX decryption"]
+      },
+      "extraction_method": "DYNAMIC",
+      "supported_strategies": ["frida"],
+      "android_versions": "4.0-11",
+      "art_compatible": true,
+      "root_required": true,
+      "status": "RESEARCH",
+      "integration_status": "EXTERNAL_TOOL"
+    },
+    {
+      "id": "arxan",
+      "name": "Arxan/AppProtection",
+      "vendor": "Arxan (now Digital.ai)",
+      "category": "PROTECTOR",
+      "detection": {
+        "native_libs": ["libAppProtection.so"],
+        "assets": [],
+        "dex_signatures": [],
+        "manifest_indicators": [],
+        "structural_patterns": ["Very hard to unpack"]
+      },
+      "extraction_method": "DYNAMIC",
+      "supported_strategies": ["frida"],
+      "android_versions": "4.0+",
+      "art_compatible": true,
+      "root_required": true,
+      "status": "RESEARCH",
+      "integration_status": "EXTERNAL_TOOL"
+    },
+    {
+      "id": "dexguard",
+      "name": "DexGuard",
+      "vendor": "Guardsquare",
+      "category": "PROTECTOR",
+      "detection": {
+        "native_libs": [],
+        "assets": [],
+        "dex_signatures": ["guardsquare"],
+        "manifest_indicators": [],
+        "structural_patterns": ["String encryption", "Class encryption", "Resource encryption"]
+      },
+      "extraction_method": "DYNAMIC",
+      "supported_strategies": ["frida"],
+      "android_versions": "4.0+",
+      "art_compatible": true,
+      "root_required": true,
+      "status": "RESEARCH",
+      "integration_status": "EXTERNAL_TOOL"
+    },
+    {
+      "id": "jiagu",
+      "name": "Jiagu (Generic)",
+      "vendor": "Various",
+      "category": "PACKER",
+      "detection": {
+        "native_libs": [],
+        "assets": [],
+        "dex_signatures": [],
+        "manifest_indicators": [],
+        "structural_patterns": ["AES-CBC DEX encryption", "XOR encryption on DEX headers", "Fake ZIP encryption flags"]
+      },
+      "extraction_method": "STATIC",
+      "supported_strategies": ["jiagu"],
+      "android_versions": "5.0+",
+      "art_compatible": true,
+      "root_required": false,
+      "status": "RESEARCH",
+      "integration_status": "RESEARCH_ONLY",
+      "research_source": "SafaSafari/jiagu_unpacker"
+    },
+    {
+      "id": "pairip",
+      "name": "PairipProtect",
+      "vendor": "Google",
+      "category": "PROTECTOR",
+      "detection": {
+        "native_libs": [],
+        "assets": [],
+        "dex_signatures": [],
+        "manifest_indicators": [],
+        "structural_patterns": ["Requires RePairip.jar"]
+      },
+      "extraction_method": "EXTERNAL",
+      "supported_strategies": ["pairip"],
+      "android_versions": "5.0+",
+      "art_compatible": true,
+      "root_required": false,
+      "status": "EXTERNAL_DEPENDENCY",
+      "integration_status": "EXTERNAL_TOOL",
+      "external_tool": "RePairip.jar"
+    }
+  ]
+}

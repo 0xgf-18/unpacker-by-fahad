@@ -1,0 +1,67 @@
+{
+  "compatibility_matrix": {
+    "android_versions": {
+      "5.0": { "art": true, "dalvik": false, "status": "SUPPORTED" },
+      "6.0": { "art": true, "dalvik": false, "status": "SUPPORTED" },
+      "7.0": { "art": true, "dalvik": false, "status": "SUPPORTED" },
+      "8.0": { "art": true, "dalvik": false, "status": "SUPPORTED" },
+      "9.0": { "art": true, "dalvik": false, "status": "SUPPORTED" },
+      "10": { "art": true, "dalvik": false, "status": "SUPPORTED" },
+      "11": { "art": true, "dalvik": false, "status": "SUPPORTED" },
+      "12": { "art": true, "dalvik": false, "status": "SUPPORTED" },
+      "13": { "art": true, "dalvik": false, "status": "SUPPORTED" },
+      "14": { "art": true, "dalvik": false, "status": "SUPPORTED" },
+      "15": { "art": true, "dalvik": false, "status": "SUPPORTED" }
+    },
+    "abi_support": {
+      "arm64-v8a": { "status": "SUPPORTED", "notes": "Primary target" },
+      "armeabi-v7a": { "status": "SUPPORTED", "notes": "Legacy support" },
+      "x86_64": { "status": "SUPPORTED", "notes": "Emulator support" },
+      "x86": { "status": "SUPPORTED", "notes": "Emulator support" }
+    },
+    "technique_compatibility": {
+      "static_dex_extraction": {
+        "android_versions": "5.0+",
+        "art": true,
+        "root": false,
+        "adb": false,
+        "status": "VALIDATED"
+      },
+      "frida_dynamic_dump": {
+        "android_versions": "5.0-12",
+        "art": true,
+        "root": true,
+        "adb": true,
+        "status": "VALIDATED"
+      },
+      "memory_scanning": {
+        "android_versions": "5.0+",
+        "art": true,
+        "root": true,
+        "adb": true,
+        "status": "RESEARCH"
+      },
+      "classloader_hooking": {
+        "android_versions": "5.0+",
+        "art": true,
+        "root": true,
+        "adb": true,
+        "status": "RESEARCH"
+      },
+      "art_modification": {
+        "android_versions": "4.4-6.0",
+        "art": true,
+        "root": true,
+        "adb": true,
+        "status": "NOT_INTEGRATABLE"
+      },
+      "gdb_debugging": {
+        "android_versions": "4.0-8.0",
+        "art": true,
+        "root": true,
+        "adb": true,
+        "status": "NOT_INTEGRATABLE"
+      }
+    }
+  }
+}

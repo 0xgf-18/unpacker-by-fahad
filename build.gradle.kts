@@ -1,5 +1,6 @@
 plugins {
-    kotlin("jvm") version "2.1.20"
+    id("org.jetbrains.kotlin.jvm") version "2.1.20"
+    id("com.android.application") version "8.7.3" apply false
     application
 }
 
@@ -21,6 +22,36 @@ kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
     }
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir("src/main/kotlin")
+            // Only Main.kt lives here; the unpack engine is in the :engine module.
+            exclude("**/ark/**")
+            exclude("**/axml/**")
+            exclude("**/b2al/**")
+            exclude("**/checksum/**")
+            exclude("**/code/**")
+            exclude("**/crack/**")
+            exclude("**/crypto/**")
+            exclude("**/dex/**")
+            exclude("**/detection/**")
+            exclude("**/elf/**")
+            exclude("**/extraction/**")
+            exclude("**/lsp/**")
+            exclude("**/rebuild/**")
+            exclude("**/restore/**")
+            exclude("**/tools/**")
+            exclude("**/util/**")
+            exclude("**/validate/**")
+        }
+    }
+}
+
+dependencies {
+    implementation(project(":engine"))
 }
 
 application {

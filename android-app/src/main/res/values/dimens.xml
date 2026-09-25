@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="margin_horizontal">16dp</dimen>
+    <dimen name="margin_vertical">8dp</dimen>
+    <dimen name="card_radius">20dp</dimen>
+    <dimen name="pill_radius">24dp</dimen>
+    <dimen name="badge_radius">12dp</dimen>
+    <dimen name="card_padding">14dp</dimen>
+    <dimen name="card_spacing">8dp</dimen>
+    <dimen name="control_height">48dp</dimen>
+    <dimen name="icon_size">44dp</dimen>
+    <dimen name="icon_small">18dp</dimen>
+    <dimen name="text_title">14sp</dimen>
+    <dimen name="text_body">13sp</dimen>
+    <dimen name="text_caption">11sp</dimen>
+    <dimen name="text_tiny">10sp</dimen>
+    <dimen name="text_button">11sp</dimen>
+    <dimen name="text_section">10sp</dimen>
+    <dimen name="spacing_xs">4dp</dimen>
+    <dimen name="spacing_sm">8dp</dimen>
+    <dimen name="spacing_md">12dp</dimen>
+    <dimen name="spacing_lg">16dp</dimen>
+    <dimen name="spacing_xl">24dp</dimen>
+    <dimen name="search_height">46dp</dimen>
+</resources>

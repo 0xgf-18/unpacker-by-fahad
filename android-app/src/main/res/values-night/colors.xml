@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="background">#0F0F14</color>
+    <color name="surface">#16161E</color>
+    <color name="glass">#18FFFFFF</color>
+    <color name="glass_bright">#22FFFFFF</color>
+    <color name="glass_border">#25FFFFFF</color>
+    <color name="glass_border_strong">#35FFFFFF</color>
+    <color name="textPrimary">#FFFFFF</color>
+    <color name="textSecondary">#888888</color>
+    <color name="textTertiary">#555555</color>
+    <color name="primary">#4A9EFF</color>
+    <color name="success">#2ECC71</color>
+    <color name="success_bg">#1A2ECC71</color>
+    <color name="error">#E74C3C</color>
+    <color name="error_bg">#1AE74C3C</color>
+    <color name="warning">#F39C12</color>
+    <color name="warning_bg">#1AF39C12</color>
+    <color name="divider">#18FFFFFF</color>
+    <color name="tab_selected">#22FFFFFF</color>
+    <color name="tab_unselected">#0DFFFFFF</color>
+    <color name="search_bg">#12FFFFFF</color>
+    <color name="badge_green">#1A2ECC71</color>
+    <color name="badge_green_text">#2ECC71</color>
+    <color name="badge_red">#1AE74C3C</color>
+    <color name="badge_red_text">#E74C3C</color>
+    <color name="badge_amber">#1AF39C12</color>
+    <color name="badge_amber_text">#F39C12</color>
+    <color name="badge_gray">#18888888</color>
+    <color name="badge_gray_text">#888888</color>
+    <color name="icon_bg">#1AFFFFFF</color>
+    <color name="primaryDark">#0F0F14</color>
+    <color name="accent">#00BFA5</color>
+</resources>

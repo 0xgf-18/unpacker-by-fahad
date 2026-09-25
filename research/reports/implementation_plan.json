@@ -1,0 +1,157 @@
+{
+  "implementation_plan": {
+    "priority_1_already_integrated": {
+      "description": "Techniques already validated and integrated in the existing project",
+      "items": [
+        {
+          "technique": "T01 - Static DEX Extraction from ZIP",
+          "source": "Internal (DPT unpacker)",
+          "license": "Internal",
+          "current_project_support": "FULL",
+          "required_changes": "None",
+          "dependencies": "None",
+          "test_sample": "dptcrackme.apk",
+          "implementation_priority": "N/A",
+          "status": "VALIDATED"
+        },
+        {
+          "technique": "T02 - B2Al Binary Carrier Detection",
+          "source": "Internal (B2AlDetector)",
+          "license": "Internal",
+          "current_project_support": "FULL",
+          "required_changes": "None",
+          "dependencies": "None",
+          "test_sample": "b2alcrackme.apk",
+          "implementation_priority": "N/A",
+          "status": "VALIDATED"
+        },
+        {
+          "technique": "T03 - Smali Deobfuscation",
+          "source": "Internal (SmaliDeobfuscator)",
+          "license": "Internal",
+          "current_project_support": "FULL",
+          "required_changes": "None",
+          "dependencies": "apktool.jar (external)",
+          "test_sample": "LSParanoid-packed APK",
+          "implementation_priority": "N/A",
+          "status": "VALIDATED"
+        },
+        {
+          "technique": "T04 - Frida-based DEX Memory Dump",
+          "source": "Internal (FridaDumper)",
+          "license": "Internal",
+          "current_project_support": "FULL",
+          "required_changes": "None",
+          "dependencies": "frida-server, frida-dexdump",
+          "test_sample": "Any packed APK on rooted device",
+          "implementation_priority": "N/A",
+          "status": "VALIDATED"
+        },
+        {
+          "technique": "T11 - APK Structure Analysis",
+          "source": "Internal (Profiler)",
+          "license": "Internal",
+          "current_project_support": "FULL",
+          "required_changes": "None",
+          "dependencies": "None",
+          "test_sample": "Any APK",
+          "implementation_priority": "N/A",
+          "status": "VALIDATED"
+        },
+        {
+          "technique": "T12 - ELF Binary Analysis",
+          "source": "Internal (ElfParser)",
+          "license": "Internal",
+          "current_project_support": "FULL",
+          "required_changes": "None",
+          "dependencies": "None",
+          "test_sample": "Any .so library",
+          "implementation_priority": "N/A",
+          "status": "VALIDATED"
+        }
+      ]
+    },
+    "priority_2_enhancement_candidates": {
+      "description": "Techniques that can enhance existing capabilities",
+      "items": [
+        {
+          "technique": "T05 - ClassLoader Hooking for DEX Interception",
+          "source": "DragonJAR/Android-Pentesting-Skill",
+          "license": "Apache-2.0 (implied)",
+          "current_project_support": "PARTIAL (FridaDumper exists)",
+          "required_changes": "Add ClassLoader hooking strategies to FridaDumper",
+          "dependencies": "frida-server",
+          "test_sample": "360 Jiagu packed APK",
+          "implementation_priority": "MEDIUM",
+          "status": "RESEARCH",
+          "notes": "Concept documented in FridaDumper, can be expanded"
+        },
+        {
+          "technique": "T06 - Memory Scanning for DEX Headers",
+          "source": "DragonJAR, pentest.blog",
+          "license": "Various",
+          "current_project_support": "PARTIAL (memory dump exists)",
+          "required_changes": "Add DEX header scanning to memory dump routine",
+          "dependencies": "frida-server",
+          "test_sample": "Any packed APK on rooted device",
+          "implementation_priority": "MEDIUM",
+          "status": "RESEARCH",
+          "notes": "Can enhance existing FridaDumper with memory scanning"
+        },
+        {
+          "technique": "T07 - Generic Runtime Packing Detection",
+          "source": "poping520/frida-packing-detector",
+          "license": "MIT",
+          "current_project_support": "NONE",
+          "required_changes": "Create RuntimePackerDetector module",
+          "dependencies": "frida-server",
+          "test_sample": "Any packed APK",
+          "implementation_priority": "LOW",
+          "status": "RESEARCH",
+          "notes": "Useful for runtime analysis phase"
+        },
+        {
+          "technique": "T08 - Jiagu DEX Decryption (AES/XOR)",
+          "source": "SafaSafari/jiagu_unpacker",
+          "license": "MIT",
+          "current_project_support": "NONE",
+          "required_changes": "Create JiaguDecryptor module in engine",
+          "dependencies": "None",
+          "test_sample": "Jiagu-packed APK",
+          "implementation_priority": "LOW",
+          "status": "RESEARCH",
+          "notes": "Static extraction technique for Jiagu-specific packer"
+        }
+      ]
+    },
+    "priority_3_research_only": {
+      "description": "Techniques that are research-only and cannot be directly integrated",
+      "items": [
+        {
+          "technique": "T09 - ART Runtime Modification",
+          "source": "zyq8709/DexHunter, CheckPointSW/android_unpacker",
+          "license": "Apache-2.0",
+          "current_project_support": "NONE",
+          "required_changes": "Not feasible - requires AOSP modification",
+          "dependencies": "AOSP build environment",
+          "test_sample": "N/A",
+          "implementation_priority": "NONE",
+          "status": "NOT_INTEGRATABLE",
+          "reason": "Requires custom AOSP build, Android 4.4-6.0 only"
+        },
+        {
+          "technique": "T10 - Native GDB-based Unpacking",
+          "source": "strazzere/android-unpacker",
+          "license": "Apache-2.0",
+          "current_project_support": "NONE",
+          "required_changes": "Not feasible - requires GDB + emulator",
+          "dependencies": "GDB, emulator",
+          "test_sample": "N/A",
+          "implementation_priority": "NONE",
+          "status": "NOT_INTEGRATABLE",
+          "reason": "Requires GDB debugging on emulator"
+        }
+      ]
+    }
+  }
+}
