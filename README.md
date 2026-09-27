@@ -210,6 +210,7 @@ usage: dpt-unpacker <input.apk> [options]      (first positional = input)
 | `--dump-manifest` | DPT: stop after manifest handling |
 | `--aes-key <hex>` | DPT: override recovered AES key |
 | `--package <pkg>` | override target package (dpt + ark) |
+| `--application <class>` | force the real Application class (dpt + ark) — use when auto-discovery picks a wrapper (e.g. SignatureKiller's `KillerApplication`) instead of the app's real `Application` |
 | `--build-key <key>` | DPT: build key override |
 | `--build-keys-file <f>` | DPT: load extra build keys from file |
 | `-h, --help` | help |

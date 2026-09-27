@@ -160,7 +160,7 @@ fun main(args: Array<String>) {
             pkgOverride = pkgOverride,
         )
         when (chosen) {
-            "dpt" -> runDptPipeline(apk, outDir, inspect, crack, debug, dumpManifest, aesKeyHex, pkgOverride, buildKeyOverride, buildKeysFile, ::hexToBytes)
+            "dpt" -> runDptPipeline(apk, outDir, inspect, crack, debug, dumpManifest, aesKeyHex, pkgOverride, buildKeyOverride, buildKeysFile, appOverride, ::hexToBytes)
             "lsparanoid" -> runLspPipeline(apk, outDir, debug)
             "ark" -> runArkPipeline(apk, outDir, debug, arkOpts)
             "b2al" -> runB2alPipeline(apk, outDir, debug, appOverride)
@@ -359,7 +359,7 @@ private fun runAutoAll(apk: File, outDir: File, debug: Boolean, opts: ArkOptions
                 "dpt" -> runDptPipeline(
                     apk, outDir, inspect = false, crack = true, debug = debug, dumpManifest = false,
                     aesKeyHex = null, pkgOverride = opts.pkgOverride,
-                    buildKeyOverride = null, buildKeysFile = null, hexToBytes = ::hexToBytes
+                    buildKeyOverride = null, buildKeysFile = null, appOverride = opts.appOverride, hexToBytes = ::hexToBytes
                 )
                 "lsparanoid" -> runLspPipeline(apk, outDir, debug)
                 "ark" -> {
@@ -388,7 +388,7 @@ private fun runAutoAll(apk: File, outDir: File, debug: Boolean, opts: ArkOptions
         "dpt" -> runDptPipeline(
             apk, outDir, inspect = false, crack = true, debug = debug, dumpManifest = false,
             aesKeyHex = null, pkgOverride = opts.pkgOverride,
-            buildKeyOverride = null, buildKeysFile = null, hexToBytes = ::hexToBytes
+            buildKeyOverride = null, buildKeysFile = null, appOverride = opts.appOverride, hexToBytes = ::hexToBytes
         )
         "lsparanoid" -> runLspPipeline(apk, outDir, debug)
         "ark" -> {
@@ -546,6 +546,7 @@ private fun printUsage() {
     println("   --dump-manifest         dump manifest")
     println("   --aes-key <hex>         override DPT AES key")
     println("   --package <pkg>         override target package (dpt + ark)")
+    println("   --application <class>   force the real Application class (dpt + ark)")
     println("   --build-key <key>       override build key")
     println("   --build-keys-file <f>   load build keys from file")
     println("   -h, --help              this help")
@@ -584,7 +585,8 @@ private fun printUsage() {
 private fun runDptPipeline(
     apk: File, outDir: File, inspect: Boolean, crack: Boolean, debug: Boolean,
     dumpManifest: Boolean, aesKeyHex: String?, pkgOverride: String?,
-    buildKeyOverride: String?, buildKeysFile: String?, hexToBytes: (String) -> ByteArray?
+    buildKeyOverride: String?, buildKeysFile: String?, appOverride: String?,
+    hexToBytes: (String) -> ByteArray?
 ) {
     val start = System.currentTimeMillis()
     banner()
@@ -662,7 +664,7 @@ private fun runDptPipeline(
         // mirror the Ark pipeline: point the manifest back at the real Application
         // instead of leaving the attribute removed (apps with a custom Application
         // child class crash / misbehave when the default getApplication() is used).
-        val realApp = ArkDexTools.discoverRealApplication(null, payloadDexes, null)
+        val realApp = ArkDexTools.discoverRealApplication(null, payloadDexes, appOverride)
         // Point <application android:name> at the real Application.  The original
         // (packed) manifest already carries a `name` attribute holding the shell's
         // ProxyApplication, so setApplicationName overwrites that value in place;
