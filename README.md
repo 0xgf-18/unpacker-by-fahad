@@ -176,6 +176,7 @@ git clone https://github.com/0xgf-18/unpacker-by-fahad DPT-UNPACKER
 cd DPT-UNPACKER
 ls -la
 
+chmod +x gradlew
 chmod +x run.sh && ./run.sh
 ```
 
