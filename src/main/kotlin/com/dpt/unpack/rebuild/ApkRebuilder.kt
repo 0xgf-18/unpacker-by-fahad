@@ -30,7 +30,7 @@ object ApkRebuilder {
 
     private val DEX_NAME = Regex("classes\\d+\\.dex")
 
-    fun rebuild(apk: File, patchedDir: File, restoredManifest: ByteArray, out: File) {
+    fun rebuild(apk: File, patchedDir: File, restoredManifest: ByteArray, out: File, extraDrop: Set<String> = emptySet()) {
         out.parentFile?.mkdirs()
         val drop = { name: String ->
             name == "assets/OoooooOooo" ||
@@ -38,7 +38,8 @@ object ApkRebuilder {
                 name.startsWith("assets/vwwwwwvwww") ||
                 name.startsWith("assets/OOooooOooo") ||
                 name == "assets/OooooOOooo" ||
-                name.startsWith("META-INF/")
+                name.startsWith("META-INF/") ||
+                name in extraDrop
         }
 
         ZipFile(apk).use { zip ->

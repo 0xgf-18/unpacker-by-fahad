@@ -51,10 +51,15 @@ Maintained by [Fahad (0xgf18)](https://github.com/0xgf18).
   anchor gating and additive scoring.
 - **Decoy handling** — detects fake-360 placeholder shells (`libjiagu_*.a`
   markers, Art-Jiagu NeoArk) and never abuses them; real re-packs are unwrapped
-  automatically.
+  automatically. The DPT rebuild additionally **strips decorative `libjiagu*`
+  natives/assets** from the output when no real 360 wiring exists (no
+  com.qihoo / com.stub / b2al manifest component and no jiagu reference in the
+  payload dexes).
 - **Rebuild + signing** — restores the real `Application` entry point, strips
-  shell `appComponentFactory`, zipaligns and signs with a generated keystore
-  when build-tools / apksigner are available.
+  shell `appComponentFactory`, drops a decorative 360 layer (jiagu natives
+  nothing wires — no com.qihoo / com.stub / b2al manifest component and no
+  jiagu reference in the payload dexes), zipaligns and signs with a generated
+  keystore when build-tools / apksigner are available.
 - **Termux-ready** — ships with `run.sh` that auto-builds on first run and
   auto-locates `apktool.jar`.
 - **Mobile-friendly UI** — fixed-width ANSI cards sized for Termux screens.
@@ -257,7 +262,9 @@ Static, five stages:
    the binary manifest is rewritten to point `<application android:name>` at the
    **real** Application (`ArkDexTools.discoverRealApplication`) and the shell's
    `appComponentFactory` attribute is removed (prevents
-   `ClassNotFoundException > ProxyComponentFactory`).
+   `ClassNotFoundException > ProxyComponentFactory`). Decorative `libjiagu*`
+   entries are detected (`Fake360Detector`: no manifest/dex 360 wiring) and
+   stripped from the output; a real 360 layer keeps them untouched.
 5. **Sign** — zipalign + apksigner with a generated keystore (see
    [Outputs, signing & keystore](#outputs-signing--keystore)).
 

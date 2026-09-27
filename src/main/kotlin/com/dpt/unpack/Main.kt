@@ -681,8 +681,22 @@ private fun runDptPipeline(
             rootManifest, "application", "appComponentFactory"
         )
         if (realApp != null) println("\n   application-name = $realApp".replace('/', '.'))
+        // Detect a decorative 360 layer riding on the shell: jiagu natives that
+        // nothing in the manifest or payload dexes actually wires are decoys and
+        // must not leak into the restored APK.
+        val fake360 = com.dpt.unpack.detection.Fake360Detector.scan(apk, manifestBytes, payloadDexes)
+        if (fake360.fake) {
+            println("\n   fake-360: decorative jiagu layer (no manifest/dex wiring) -> stripping ${fake360.candidates.size} entries")
+            fake360.candidates.forEach { println("     - $it") }
+        } else if (fake360.candidates.isNotEmpty()) {
+            println("\n   fake-360: real 360 wiring detected -> keeping ${fake360.candidates.size} jiagu entries")
+            fake360.wiring.forEach { println("     ~ $it") }
+        }
         val unsigned = File(outDir, "unsigned.apk")
-        com.dpt.unpack.rebuild.ApkRebuilder.rebuild(apk, patchedDir, rootManifest, unsigned)
+        com.dpt.unpack.rebuild.ApkRebuilder.rebuild(
+            apk, patchedDir, rootManifest, unsigned,
+            if (fake360.fake) fake360.candidates.toSet() else emptySet()
+        )
         val finalName = apk.name.removeSuffix(".apk") + "-unpacked.apk"
         signAndDeliver(unsigned, finalName, outDir)
     }
