@@ -8,7 +8,7 @@ right backend — DPT Shell, LSParanoid, 360 Jiagu / ArkShell or PairipProtect �
 then rebuilds and (optionally) signs the result. Designed for Termux on Android
 and works on desktop (Windows/Linux/macOS).
 
-Maintained by [Fahad (0xgf18)](https://github.com/0xgf18).
+Maintained by [Fahad (0xgf-18)](https://github.com/0xgf-18).
 
 ---
 
@@ -172,7 +172,7 @@ Youtube Video https://youtu.be/EQvlHzHL-t8?si=JLDmbGmbvRuJCA0A
 ```bash
 pkg install openjdk-17 unzip
 termux-setup-storage            # allow /sdcard access
-git clone https://github.com/0xgf18/unpacker-by-fahad DPT-UNPACKER
+git clone https://github.com/0xgf-18/unpacker-by-fahad DPT-UNPACKER
 cd DPT-UNPACKER
 ls -la
 
@@ -540,7 +540,7 @@ that ships as an external tool (KeyDive / blutter / ...). See the
 
 ## License
 
-Copyright © 2026 Fahad (0xgf18). **All rights reserved.**
+Copyright © 2026 Fahad (0xgf-18). **All rights reserved.**
 
 You may **use** this tool freely for personal, non-commercial purposes. All
 other rights remain with the author: copying, modifying, redistributing or
