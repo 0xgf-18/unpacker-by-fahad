@@ -54,33 +54,81 @@ object ArkDexTools {
         return result
     }
 
+    private val APP_FILTER = listOf("b2al", "com.qihoo", "stub", "ark", "android.app", "dpt")
+
     /**
      * Discovers the real Application class across the recovered payload dexes.
      * Preference: 1) explicit override, 2) candidate also referenced as a string in
      * the shell stub dex, 3) the single distinct candidate, 4) deterministic pick.
+     * Candidates are first walked down to the leaf of the inheritance chain:
+     * protection bases (e.g. bin.mt.signature.KillerApplication) extend
+     * Application directly, while the manifest must register the concrete leaf
+     * subclass — registering the base crashes with ClassCastException at launch.
      */
     fun discoverRealApplication(stubDex: ByteArray?, payloadDexes: List<ByteArray>, override: String?): String? {
         override?.let { return it }
 
         val apps = payloadDexes.flatMap { applicationClasses(it) }
-            .filter { cls ->
-                listOf("b2al", "com.qihoo", "stub", "ark", "android.app", "dpt").none {
-                    cls.startsWith(it, ignoreCase = true)
-                }
-            }
+            .filter { cls -> APP_FILTER.none { cls.startsWith(it, ignoreCase = true) } }
             .distinct()
         if (apps.isEmpty()) return null
+
+        val leaves = walkToLeaf(apps, payloadDexes)
 
         val stubApps = stubDex?.let { allStrings(it) }?.mapNotNull { s ->
             s.removePrefix("L").takeIf { it.endsWith("Application;") }?.removeSuffix(";")
         }?.filter { !it.startsWith("b2al", ignoreCase = true) && !it.startsWith("com.qihoo", ignoreCase = true) }
             ?: emptyList()
 
-        stubApps.firstOrNull { apps.contains(it) }?.let { return it }
-        if (apps.size == 1) return apps[0]
-        val firstDex = payloadDexes.firstOrNull { d -> applicationClasses(d).any { apps.contains(it) } }
-        firstDex?.let { d -> applicationClasses(d).firstOrNull { apps.contains(it) } }?.let { return it }
-        return apps.minByOrNull { it.length }
+        (stubApps.firstOrNull { leaves.contains(it) } ?: stubApps.firstOrNull { apps.contains(it) })?.let { return it }
+        if (leaves.size == 1) return leaves[0]
+        val firstDex = payloadDexes.firstOrNull { d -> applicationClasses(d).any { leaves.contains(it) } }
+        firstDex?.let { d -> applicationClasses(d).firstOrNull { leaves.contains(it) } }?.let { return it }
+        return leaves.minByOrNull { it.length }
+    }
+
+    /** className (com/foo/Bar) -> superclass name for every class defined in the dex. */
+    private fun classSupers(dex: ByteArray): Map<String, String> {
+        val out = mutableMapOf<String, String>()
+        val stringIdsOff = u32(dex, 0x3C).toInt()
+        val typeIdsSize = u32(dex, 0x40).toInt()
+        val typeIdsOff = u32(dex, 0x44).toInt()
+        val classDefsSize = u32(dex, 0x60).toInt()
+        val classDefsOff = u32(dex, 0x64).toInt()
+
+        fun desc(typeIdx: Int): String? {
+            if (typeIdx < 0 || typeIdx >= typeIdsSize) return null
+            val t = typeIdsOff + typeIdx * 4
+            return readStringAt(dex, u32(dex, stringIdsOff + u32(dex, t).toInt() * 4).toInt())
+        }
+
+        for (i in 0 until classDefsSize) {
+            val cd = classDefsOff + i * 32
+            if (cd + 32 > dex.size) break
+            val cls = desc(u32(dex, cd).toInt())?.removePrefix("L")?.removeSuffix(";") ?: continue
+            val supIdx = u32(dex, cd + 8).toInt()
+            if (supIdx == -1) continue // NO_SUPER
+            desc(supIdx)?.removePrefix("L")?.removeSuffix(";")?.let { out[cls] = it }
+        }
+        return out
+    }
+
+    /**
+     * Walks Application candidates down the subclass chain to the leaf: each round
+     * replaces the current set with classes extending them, stopping when no
+     * subclass exists anymore (bounded to guard against cycles).
+     */
+    private fun walkToLeaf(candidates: List<String>, payloadDexes: List<ByteArray>): List<String> {
+        val supers = payloadDexes.flatMap { classSupers(it).toList() }.toMap()
+        var current = candidates
+        repeat(16) {
+            val children = current.flatMap { parent -> supers.filterValues { it == parent }.keys }
+                .distinct()
+                .filter { cls -> APP_FILTER.none { cls.startsWith(it, ignoreCase = true) } }
+            if (children.isEmpty()) return current
+            current = children
+        }
+        return current
     }
 
     fun allStrings(dex: ByteArray): List<String> {

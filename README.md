@@ -261,7 +261,10 @@ Static, five stages:
    in place, neutralising runtime hooks and bridges as it goes.
 4. **Rebuild** — `ApkRebuilder` merges the patched dexes with the original zip;
    the binary manifest is rewritten to point `<application android:name>` at the
-   **real** Application (`ArkDexTools.discoverRealApplication`) and the shell's
+   **real** Application (`ArkDexTools.discoverRealApplication` — walks
+   protection base classes like `bin.mt.signature.KillerApplication` down to the
+   concrete leaf subclass so the manifest never registers the base and crashes
+   with `ClassCastException`) and the shell's
    `appComponentFactory` attribute is removed (prevents
    `ClassNotFoundException > ProxyComponentFactory`). Decorative `libjiagu*`
    entries are detected (`Fake360Detector`: no manifest/dex 360 wiring) and
